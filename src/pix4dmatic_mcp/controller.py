@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 import time
+import types
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -12,12 +15,31 @@ from .errors import Pix4DAutomationError, Pix4DNotFoundError, Pix4DWindowNotFoun
 from .screenshots import capture_screen
 from .selectors import MAIN_WINDOW_TITLES, PROCESS_NAMES
 
+
+def _prepare_comtypes_cache() -> None:
+    """Use a writable cache so pywinauto/comtypes works in locked-down profiles."""
+    try:
+        import comtypes
+
+        cache_dir = Path(tempfile.gettempdir()) / "pix4dmatic_mcp" / "comtypes_cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        module = types.ModuleType("comtypes.gen")
+        module.__path__ = [str(cache_dir)]
+        sys.modules["comtypes.gen"] = module
+        comtypes.gen = module
+    except Exception:
+        return
+
+
+_prepare_comtypes_cache()
+
 try:
-    from pywinauto import Application, Desktop, keyboard
+    from pywinauto import Application, Desktop, keyboard, mouse
 except Exception:  # pragma: no cover - import depends on Windows desktop packages.
     Application = None
     Desktop = None
     keyboard = None
+    mouse = None
 
 try:
     import win32con
@@ -102,6 +124,70 @@ class Pix4DMaticController:
         keyboard.send_keys(text, with_spaces=with_spaces, pause=0.01)
         return {"ok": True, "chars": len(text)}
 
+    def click_text(self, text: str, timeout_sec: int | None = None) -> dict[str, Any]:
+        timeout = timeout_sec or self.config.default_timeout_sec
+        deadline = time.time() + timeout
+        last_error: str | None = None
+        while time.time() < deadline:
+            try:
+                window = self._uia_main_window()
+                control = self._find_text_control(window, text)
+                if control:
+                    control.click_input()
+                    return {"ok": True, "text": text, "backend": "uia"}
+            except Exception as exc:
+                last_error = str(exc)
+            time.sleep(0.5)
+        message = f"Text control was not found within {timeout} seconds: {text}"
+        if last_error:
+            message = f"{message}. Last error: {last_error}"
+        raise Pix4DWindowNotFoundError(message)
+
+    def click_menu(self, path: list[str], timeout_sec: int | None = None) -> dict[str, Any]:
+        if not path:
+            raise Pix4DAutomationError("Menu path must contain at least one item.")
+        clicked = []
+        for item in path:
+            self.click_text(item, timeout_sec=timeout_sec)
+            clicked.append(item)
+            time.sleep(0.3)
+        return {"ok": True, "path": clicked}
+
+    def click_coordinates(self, x: int, y: int) -> dict[str, Any]:
+        if not self.config.allow_coordinate_click_fallback:
+            raise Pix4DAutomationError("Coordinate click fallback is disabled in config.")
+        if mouse is None:
+            raise Pix4DAutomationError("pywinauto mouse support is not available.")
+        self.focus()
+        mouse.click(button="left", coords=(x, y))
+        return {"ok": True, "x": x, "y": y}
+
+    def get_ui_tree(self, depth: int = 3) -> dict[str, Any]:
+        window = self._uia_main_window()
+        controls = []
+        for control in window.descendants():
+            try:
+                rectangle = control.rectangle()
+                controls.append(
+                    {
+                        "text": control.window_text(),
+                        "control_type": control.element_info.control_type,
+                        "class_name": control.class_name(),
+                        "automation_id": control.element_info.automation_id,
+                        "rectangle": {
+                            "left": rectangle.left,
+                            "top": rectangle.top,
+                            "right": rectangle.right,
+                            "bottom": rectangle.bottom,
+                        },
+                    }
+                )
+            except Exception:
+                continue
+            if len(controls) >= 500:
+                break
+        return {"ok": True, "depth": depth, "controls": controls}
+
     def open_project(self, project_path: str) -> dict[str, Any]:
         path = Path(project_path)
         if not path.exists():
@@ -143,6 +229,35 @@ class Pix4DMaticController:
         if not windows:
             raise Pix4DWindowNotFoundError("PIX4Dmatic main window was not found.")
         return windows[0]
+
+    def _uia_main_window(self):
+        if Desktop is None or Application is None:
+            raise Pix4DAutomationError("pywinauto UI Automation support is not available.")
+        windows = self._desktop_windows()
+        if windows:
+            return windows[0]
+        fallback = self._win32_windows()
+        if not fallback:
+            raise Pix4DWindowNotFoundError("PIX4Dmatic main window was not found.")
+        handle = fallback[0]["handle"]
+        app = Application(backend="uia").connect(handle=handle)
+        return app.window(handle=handle)
+
+    @staticmethod
+    def _find_text_control(window, text: str):
+        target = text.strip().lower()
+        for control in window.descendants():
+            try:
+                values = [
+                    control.window_text(),
+                    control.element_info.name,
+                    control.element_info.automation_id,
+                ]
+                if any(value and target in value.strip().lower() for value in values):
+                    return control
+            except Exception:
+                continue
+        return None
 
     def _desktop_windows(self):
         if Desktop is None:

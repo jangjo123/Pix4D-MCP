@@ -61,6 +61,24 @@ def pix4d_type_text(text: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+def pix4d_click_text(text: str, timeout_sec: int | None = None) -> dict[str, Any]:
+    """Click a visible PIX4Dmatic UI control by accessible text."""
+    return _safe(controller.click_text, text, timeout_sec)
+
+
+@mcp.tool()
+def pix4d_click_menu(path: list[str], timeout_sec: int | None = None) -> dict[str, Any]:
+    """Click a menu or menu-like UI path by visible text labels."""
+    return _safe(controller.click_menu, path, timeout_sec)
+
+
+@mcp.tool()
+def pix4d_get_ui_tree(depth: int = 3) -> dict[str, Any]:
+    """Return a compact UI Automation tree for selector discovery."""
+    return _safe(controller.get_ui_tree, depth)
+
+
+@mcp.tool()
 def pix4d_open_project(project_path: str) -> dict[str, Any]:
     """Open an existing PIX4Dmatic project file."""
     return _safe(controller.open_project, project_path)

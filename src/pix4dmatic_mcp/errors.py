@@ -21,3 +21,7 @@ class Pix4DTimeoutError(Pix4DMaticError):
 
 class Pix4DAutomationError(Pix4DMaticError):
     code = "PIX4DMATIC_AUTOMATION_ERROR"
+
+
+class Pix4DUserActionRequiredError(Pix4DMaticError):
+    code = "USER_ACTION_REQUIRED"
