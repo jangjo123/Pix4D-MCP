@@ -16,6 +16,8 @@ ERROR_KEYWORDS = [
     "missing image",
 ]
 WARNING_KEYWORDS = ["[Warning]", "warning"]
+COMPLETION_KEYWORDS = ["completed", "finished", "done", "successfully"]
+PROCESSING_KEYWORDS = ["processing", "running", "started"]
 
 
 @dataclass(frozen=True)
@@ -53,9 +55,15 @@ def read_tail(path: Path, lines: int = 200) -> list[str]:
 def summarize_log_lines(lines: list[str]) -> dict:
     errors = [line for line in lines if any(keyword.lower() in line.lower() for keyword in ERROR_KEYWORDS)]
     warnings = [line for line in lines if any(keyword.lower() in line.lower() for keyword in WARNING_KEYWORDS)]
+    completions = [line for line in lines if any(keyword in line.lower() for keyword in COMPLETION_KEYWORDS)]
+    processing = [line for line in lines if any(keyword in line.lower() for keyword in PROCESSING_KEYWORDS)]
     return {
         "error_count": len(errors),
         "warning_count": len(warnings),
+        "completion_count": len(completions),
+        "processing_count": len(processing),
         "errors": errors[-50:],
         "warnings": warnings[-50:],
+        "completions": completions[-20:],
+        "processing": processing[-20:],
     }

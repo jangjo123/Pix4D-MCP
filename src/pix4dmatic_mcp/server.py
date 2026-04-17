@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -97,6 +98,24 @@ def pix4d_find_log_errors(lines: int = 1000, project_dir: str | None = None) -> 
 
 
 @mcp.tool()
+def pix4d_start_processing(selectors: list[str] | None = None, timeout_sec: int | None = None) -> dict[str, Any]:
+    """Start processing by clicking the first matching processing control."""
+    return _safe(workflows.start_processing, selectors, timeout_sec)
+
+
+@mcp.tool()
+def pix4d_wait_until_idle(
+    timeout_sec: int | None = None,
+    poll_sec: int = 10,
+    idle_cpu_percent: float = 5.0,
+    idle_checks: int = 3,
+    project_dir: str | None = None,
+) -> dict[str, Any]:
+    """Wait until PIX4Dmatic appears idle based on process CPU and recent logs."""
+    return _safe(workflows.wait_until_idle, timeout_sec, poll_sec, idle_cpu_percent, idle_checks, project_dir)
+
+
+@mcp.tool()
 def pix4d_check_outputs(project_dir: str, expected: list[str]) -> dict[str, Any]:
     """Check whether expected PIX4Dmatic outputs exist under a project directory."""
     return _safe(workflows.check_outputs, project_dir, expected)
@@ -106,6 +125,23 @@ def pix4d_check_outputs(project_dir: str, expected: list[str]) -> dict[str, Any]
 def pix4d_collect_diagnostics(output_dir: str, project_dir: str | None = None) -> dict[str, Any]:
     """Collect screenshot, recent logs, and status into a diagnostics directory."""
     return _safe(workflows.collect_diagnostics, output_dir, project_dir)
+
+
+@mcp.tool()
+def pix4d_run_job_object(job: dict[str, Any]) -> dict[str, Any]:
+    """Run a job object against the current PIX4Dmatic session or an existing project_path."""
+    return _safe(workflows.run_job_object, job)
+
+
+@mcp.tool()
+def pix4d_run_job(job_path: str) -> dict[str, Any]:
+    """Load and run a JSON job file."""
+    def _load_and_run() -> dict[str, Any]:
+        with open(job_path, "r", encoding="utf-8") as file:
+            job = json.load(file)
+        return workflows.run_job_object(job)
+
+    return _safe(_load_and_run)
 
 
 def main() -> None:
