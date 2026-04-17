@@ -11,7 +11,7 @@ from typing import Any
 import psutil
 
 from .config import Pix4DConfig, load_config
-from .errors import Pix4DAutomationError, Pix4DNotFoundError, Pix4DWindowNotFoundError
+from .errors import Pix4DAutomationError, Pix4DNotFoundError, Pix4DUserActionRequiredError, Pix4DWindowNotFoundError
 from .screenshots import capture_screen
 from .selectors import MAIN_WINDOW_TITLES, PROCESS_NAMES
 
@@ -42,11 +42,15 @@ except Exception:  # pragma: no cover - import depends on Windows desktop packag
     mouse = None
 
 try:
+    import win32api
     import win32con
     import win32gui
+    import win32process
 except Exception:  # pragma: no cover - import depends on pywin32.
+    win32api = None
     win32con = None
     win32gui = None
+    win32process = None
 
 
 class Pix4DMaticController:
@@ -75,6 +79,7 @@ class Pix4DMaticController:
             "running": bool(processes),
             "processes": [self._process_info(proc) for proc in processes],
             "windows": windows,
+            "foreground_window": self._foreground_window_info(),
             "configured_exe": str(self.config.pix4dmatic_exe) if self.config.pix4dmatic_exe else None,
         }
 
@@ -102,18 +107,35 @@ class Pix4DMaticController:
             raise Pix4DAutomationError("Neither pywinauto nor pywin32 focus support is available.")
         handle = window["handle"]
         win32gui.ShowWindow(handle, win32con.SW_RESTORE)
+        self._force_foreground_window(handle)
         win32gui.SetForegroundWindow(handle)
-        return {"ok": True, "title": window["title"], "handle": handle}
+        return {"ok": True, "title": window["title"], "handle": handle, "foreground_window": self._foreground_window_info()}
 
     def screenshot(self, output_dir: str | None = None) -> dict[str, Any]:
         directory = Path(output_dir) if output_dir else self.config.diagnostics_dir
         path = capture_screen(directory)
         return {"ok": True, "path": str(path)}
 
+    def window_screenshot(self, output_dir: str | None = None) -> dict[str, Any]:
+        if win32gui is None:
+            raise Pix4DAutomationError("pywin32 screenshot support is not available.")
+        from PIL import ImageGrab
+
+        window = self._main_window()
+        handle = window.handle if hasattr(window, "handle") else window["handle"]
+        left, top, right, bottom = win32gui.GetWindowRect(handle)
+        directory = Path(output_dir) if output_dir else self.config.diagnostics_dir
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / f"pix4dmatic_window_{int(time.time())}.png"
+        image = ImageGrab.grab(bbox=(left, top, right, bottom))
+        image.save(path)
+        return {"ok": True, "path": str(path), "handle": handle, "rectangle": {"left": left, "top": top, "right": right, "bottom": bottom}}
+
     def send_hotkey(self, keys: str) -> dict[str, Any]:
         if keyboard is None:
             raise Pix4DAutomationError("pywinauto keyboard support is not available.")
         self.focus()
+        self._ensure_foreground_for_keyboard()
         keyboard.send_keys(keys)
         return {"ok": True, "keys": keys}
 
@@ -121,6 +143,7 @@ class Pix4DMaticController:
         if keyboard is None:
             raise Pix4DAutomationError("pywinauto keyboard support is not available.")
         self.focus()
+        self._ensure_foreground_for_keyboard()
         keyboard.send_keys(text, with_spaces=with_spaces, pause=0.01)
         return {"ok": True, "chars": len(text)}
 
@@ -343,6 +366,45 @@ class Pix4DMaticController:
 
         win32gui.EnumWindows(callback, None)
         return windows
+
+    def _foreground_window_info(self) -> dict[str, Any] | None:
+        if win32gui is None:
+            return None
+        try:
+            handle = win32gui.GetForegroundWindow()
+            return {"handle": handle, "title": win32gui.GetWindowText(handle)}
+        except Exception:
+            return None
+
+    def _ensure_foreground_for_keyboard(self) -> None:
+        foreground = self._foreground_window_info()
+        if foreground and any(title.lower() in foreground.get("title", "").lower() for title in MAIN_WINDOW_TITLES):
+            return
+        raise Pix4DUserActionRequiredError(
+            f"PIX4Dmatic is not the foreground window; keyboard input was blocked. Foreground: {foreground}"
+        )
+
+    @staticmethod
+    def _force_foreground_window(handle: int) -> None:
+        if win32gui is None or win32process is None or win32api is None:
+            return
+        try:
+            foreground = win32gui.GetForegroundWindow()
+            current_thread = win32api.GetCurrentThreadId()
+            foreground_thread, _ = win32process.GetWindowThreadProcessId(foreground)
+            target_thread, _ = win32process.GetWindowThreadProcessId(handle)
+            win32process.AttachThreadInput(current_thread, foreground_thread, True)
+            win32process.AttachThreadInput(current_thread, target_thread, True)
+            win32gui.BringWindowToTop(handle)
+            win32gui.SetActiveWindow(handle)
+        except Exception:
+            return
+        finally:
+            try:
+                win32process.AttachThreadInput(current_thread, foreground_thread, False)
+                win32process.AttachThreadInput(current_thread, target_thread, False)
+            except Exception:
+                pass
 
     @staticmethod
     def _process_info(proc: psutil.Process) -> dict[str, Any]:

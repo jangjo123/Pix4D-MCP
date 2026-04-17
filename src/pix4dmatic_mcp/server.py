@@ -50,6 +50,12 @@ def pix4d_screenshot(output_dir: str | None = None) -> dict[str, Any]:
 
 
 @mcp.tool()
+def pix4d_window_screenshot(output_dir: str | None = None) -> dict[str, Any]:
+    """Save a screenshot of the PIX4Dmatic window rectangle."""
+    return _safe(controller.window_screenshot, output_dir)
+
+
+@mcp.tool()
 def pix4d_send_hotkey(keys: str) -> dict[str, Any]:
     """Send a pywinauto hotkey string to PIX4Dmatic, for example '^o' or '{F5}'."""
     return _safe(controller.send_hotkey, keys)

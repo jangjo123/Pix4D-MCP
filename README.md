@@ -82,6 +82,7 @@ Session and observation:
 - `pix4d_focus`
 - `pix4d_get_status`
 - `pix4d_screenshot`
+- `pix4d_window_screenshot`
 - `pix4d_get_ui_tree`
 
 Low-level UI control:
