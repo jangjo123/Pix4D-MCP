@@ -1,0 +1,24 @@
+{
+  "batch_id": "batch_001",
+  "continue_on_failure": true,
+  "job_defaults": {
+    "dry_run": true,
+    "timeout_sec": 28800,
+    "expected_outputs": [
+      "quality_report",
+      "orthomosaic"
+    ]
+  },
+  "jobs": [
+    {
+      "job_id": "site_001",
+      "project_dir": "D:\\Pix4DJobs\\site_001",
+      "project_path": "D:\\Pix4DJobs\\site_001\\site_001.p4m"
+    },
+    {
+      "job_id": "site_002",
+      "project_dir": "D:\\Pix4DJobs\\site_002",
+      "project_path": "D:\\Pix4DJobs\\site_002\\site_002.p4m"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import time
+import json
 from pathlib import Path
 from typing import Any
 
@@ -164,21 +165,68 @@ class Pix4DWorkflows:
                 "Job must provide project_path or set use_current_session=true to process the current session."
             )
 
-        start_result = self.start_processing(timeout_sec=job.get("ui_timeout_sec"))
-        wait_result = self.wait_until_idle(timeout_sec=timeout_sec, project_dir=project_dir)
-        output_result = None
-        if project_dir and expected_outputs:
-            output_result = self.check_outputs(project_dir, expected_outputs)
+        try:
+            start_result = self.start_processing(timeout_sec=job.get("ui_timeout_sec"))
+            wait_result = self.wait_until_idle(timeout_sec=timeout_sec, project_dir=project_dir)
+            output_result = None
+            if project_dir and expected_outputs:
+                output_result = self.check_outputs(project_dir, expected_outputs)
 
-        ok = bool(wait_result.get("ok")) and (output_result is None or bool(output_result.get("ok")))
+            ok = bool(wait_result.get("ok")) and (output_result is None or bool(output_result.get("ok")))
+            result = {
+                "ok": ok,
+                "job_id": job.get("job_id"),
+                "open_project": open_result,
+                "start_processing": start_result,
+                "wait": wait_result,
+                "outputs": output_result,
+            }
+            if not ok:
+                result["diagnostics"] = self.collect_job_diagnostics(job)
+            return result
+        except Pix4DMaticError:
+            raise
+        except Exception as exc:
+            diagnostics = self.collect_job_diagnostics(job)
+            return {
+                "ok": False,
+                "job_id": job.get("job_id"),
+                "code": "JOB_FAILED",
+                "message": str(exc),
+                "open_project": open_result,
+                "diagnostics": diagnostics,
+            }
+
+    def run_batch_object(self, batch: dict[str, Any]) -> dict[str, Any]:
+        jobs = batch.get("jobs") or []
+        if not isinstance(jobs, list) or not jobs:
+            raise Pix4DUserActionRequiredError("Batch must contain a non-empty jobs list.")
+
+        continue_on_failure = bool(batch.get("continue_on_failure", False))
+        results = []
+        for index, job in enumerate(jobs):
+            merged_job = {**batch.get("job_defaults", {}), **job}
+            if "job_id" not in merged_job:
+                merged_job["job_id"] = f"job_{index + 1}"
+            result = self.run_job_object(merged_job)
+            results.append(result)
+            if not result.get("ok") and not continue_on_failure:
+                break
+
         return {
-            "ok": ok,
-            "job_id": job.get("job_id"),
-            "open_project": open_result,
-            "start_processing": start_result,
-            "wait": wait_result,
-            "outputs": output_result,
+            "ok": all(result.get("ok") for result in results) and len(results) == len(jobs),
+            "batch_id": batch.get("batch_id"),
+            "total_jobs": len(jobs),
+            "completed_jobs": len(results),
+            "continue_on_failure": continue_on_failure,
+            "results": results,
         }
+
+    def run_batch_file(self, batch_path: str) -> dict[str, Any]:
+        path = Path(batch_path)
+        with path.open("r", encoding="utf-8") as file:
+            batch = json.load(file)
+        return self.run_batch_object(batch)
 
     def check_outputs(self, project_dir: str, expected: list[str]) -> dict[str, Any]:
         root = Path(project_dir)
@@ -211,3 +259,21 @@ class Pix4DWorkflows:
             except OSError:
                 continue
         return {"ok": True, "screenshot": str(screenshot), "logs": copied_logs, "status": self.controller.get_status()}
+
+    def collect_job_diagnostics(self, job: dict[str, Any]) -> dict[str, Any]:
+        job_id = str(job.get("job_id") or "job")
+        project_dir = job.get("project_dir")
+        output_dir = Path(job.get("diagnostics_dir") or self.config.diagnostics_dir / job_id)
+        result = self.collect_diagnostics(str(output_dir), project_dir=project_dir)
+        report_path = output_dir / "diagnostics.json"
+        payload = {
+            "job": job,
+            "diagnostics": result,
+            "logs": self.read_latest_logs(lines=200, project_dir=project_dir),
+        }
+        try:
+            report_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+            result["report"] = str(report_path)
+        except OSError as exc:
+            result["report_error"] = str(exc)
+        return result

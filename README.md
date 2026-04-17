@@ -98,6 +98,8 @@ Project and processing:
 - `pix4d_wait_until_idle`
 - `pix4d_run_job`
 - `pix4d_run_job_object`
+- `pix4d_run_batch`
+- `pix4d_run_batch_object`
 
 Logs and outputs:
 
@@ -111,6 +113,8 @@ Logs and outputs:
 `pix4d_run_job_object` and `pix4d_run_job` will start processing. A job must either provide `project_path` or explicitly set `use_current_session` to `true`.
 
 Use `dry_run: true` to validate job intent without clicking the PIX4Dmatic UI.
+
+Batch files run jobs sequentially. Set `continue_on_failure: true` to continue after a failed job. See `examples/batch.example.json`.
 
 ## Safety
 

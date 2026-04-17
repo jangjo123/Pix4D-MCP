@@ -144,6 +144,18 @@ def pix4d_run_job(job_path: str) -> dict[str, Any]:
     return _safe(_load_and_run)
 
 
+@mcp.tool()
+def pix4d_run_batch_object(batch: dict[str, Any]) -> dict[str, Any]:
+    """Run multiple jobs sequentially from a batch object."""
+    return _safe(workflows.run_batch_object, batch)
+
+
+@mcp.tool()
+def pix4d_run_batch(batch_path: str) -> dict[str, Any]:
+    """Load and run a JSON batch file."""
+    return _safe(workflows.run_batch_file, batch_path)
+
+
 def main() -> None:
     mcp.run()
 
