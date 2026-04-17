@@ -3,6 +3,8 @@
   "project_name": "site_001",
   "project_dir": "D:\\Pix4DJobs\\site_001",
   "project_path": "D:\\Pix4DJobs\\site_001\\site_001.p4m",
+  "use_current_session": false,
+  "dry_run": false,
   "image_dir": "D:\\Datasets\\site_001\\images",
   "template": "nadir",
   "expected_outputs": [

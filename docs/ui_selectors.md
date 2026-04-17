@@ -11,3 +11,11 @@ Known main window titles:
 
 - `PIX4Dmatic`
 - `Pix4Dmatic`
+
+Observed Korean menu labels:
+
+- `파일(F)`
+- `편집(E)`
+- `프로세스(P)`
+
+Processing start candidates are kept in `src/pix4dmatic_mcp/selectors.py`. Use `pix4d_get_ui_tree` after PIX4Dmatic updates to refresh selectors.
