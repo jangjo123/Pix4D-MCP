@@ -133,8 +133,8 @@ class Pix4DMaticController:
                 window = self._uia_main_window()
                 control = self._find_text_control(window, text)
                 if control:
-                    control.click_input()
-                    return {"ok": True, "text": text, "backend": "uia"}
+                    method = self._activate_control(control)
+                    return {"ok": True, "text": text, "backend": "uia", "method": method}
             except Exception as exc:
                 last_error = str(exc)
             time.sleep(0.5)
@@ -258,6 +258,20 @@ class Pix4DMaticController:
             except Exception:
                 continue
         return None
+
+    @staticmethod
+    def _activate_control(control) -> str:
+        for method_name in ("invoke", "select", "click"):
+            method = getattr(control, method_name, None)
+            if method is None:
+                continue
+            try:
+                method()
+                return method_name
+            except Exception:
+                continue
+        control.click_input()
+        return "click_input"
 
     def _desktop_windows(self):
         if Desktop is None:
