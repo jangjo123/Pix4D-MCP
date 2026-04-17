@@ -10,7 +10,7 @@ from typing import Any
 
 import psutil
 
-from .config import Pix4DConfig, default_config
+from .config import Pix4DConfig, load_config
 from .errors import Pix4DAutomationError, Pix4DNotFoundError, Pix4DWindowNotFoundError
 from .screenshots import capture_screen
 from .selectors import MAIN_WINDOW_TITLES, PROCESS_NAMES
@@ -51,7 +51,7 @@ except Exception:  # pragma: no cover - import depends on pywin32.
 
 class Pix4DMaticController:
     def __init__(self, config: Pix4DConfig | None = None) -> None:
-        self.config = config or default_config()
+        self.config = config or load_config()
 
     def get_processes(self) -> list[psutil.Process]:
         processes: list[psutil.Process] = []

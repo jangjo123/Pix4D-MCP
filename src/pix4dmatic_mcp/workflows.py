@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .config import Pix4DConfig, default_config
+from .config import Pix4DConfig, load_config
 from .controller import Pix4DMaticController
 from .errors import Pix4DMaticError, Pix4DTimeoutError, Pix4DUserActionRequiredError
 from .logs import find_log_files, read_tail, summarize_log_lines
@@ -26,7 +26,7 @@ OUTPUT_PATTERNS = {
 
 class Pix4DWorkflows:
     def __init__(self, config: Pix4DConfig | None = None) -> None:
-        self.config = config or default_config()
+        self.config = config or load_config()
         self.controller = Pix4DMaticController(self.config)
 
     def read_latest_logs(self, lines: int = 200, project_dir: str | None = None) -> dict[str, Any]:

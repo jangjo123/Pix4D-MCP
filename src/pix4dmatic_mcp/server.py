@@ -5,13 +5,13 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from .config import default_config
+from .config import load_config
 from .controller import Pix4DMaticController
 from .errors import Pix4DMaticError
 from .workflows import Pix4DWorkflows
 
 mcp = FastMCP("pix4dmatic-mcp")
-config = default_config()
+config = load_config()
 controller = Pix4DMaticController(config)
 workflows = Pix4DWorkflows(config)
 

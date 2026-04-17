@@ -1,0 +1,13 @@
+{
+  "pix4dmatic_exe": "C:\\downloadx\\PIX4Dmatic\\PIX4Dmatic.exe",
+  "ui_language": "ko",
+  "default_timeout_sec": 30,
+  "processing_timeout_sec": 28800,
+  "diagnostics_dir": "C:\\Users\\User\\Desktop\\Pix4D-MCP\\diagnostics",
+  "log_search_dirs": [
+    "C:\\Users\\User\\AppData\\Roaming\\pix4d",
+    "C:\\Users\\User\\AppData\\Local\\pix4d\\PIX4Dmatic",
+    "C:\\Users\\User\\AppData\\Local\\Pix4Dmatic"
+  ],
+  "allow_coordinate_click_fallback": false
+}

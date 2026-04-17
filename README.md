@@ -47,6 +47,21 @@ $env:PYTHONPATH = "src"
 python -m pix4dmatic_mcp.server
 ```
 
+## Configuration
+
+The server loads defaults automatically, then optionally reads:
+
+- `PIX4DMATIC_MCP_CONFIG`
+- `pix4dmatic_mcp_config.json` in the current working directory
+- `config/pix4dmatic_mcp_config.json` in the current working directory
+
+Useful environment overrides:
+
+- `PIX4DMATIC_EXE`
+- `PIX4DMATIC_MCP_DIAGNOSTICS_DIR`
+
+See `examples/pix4dmatic_mcp_config.example.json`.
+
 For Codex or another MCP client, use `examples/mcp_config.example.json` as a starting point.
 
 ## Quick Local Checks
