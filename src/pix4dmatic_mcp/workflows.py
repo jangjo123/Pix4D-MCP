@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import time
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -19,10 +20,12 @@ OUTPUT_PATTERNS = {
     "orthomosaic": ["*orthomosaic*.tif", "*orthomosaic*.tiff", "*ortho*.tif", "*ortho*.tiff"],
     "dsm": ["*dsm*.tif", "*dsm*.tiff"],
     "dtm": ["*dtm*.tif", "*dtm*.tiff"],
-    "dense_point_cloud": ["*.las", "*.laz", "*point*cloud*"],
+    "dense_point_cloud": ["*.las", "*.laz", "*.xyz", "*point*cloud*"],
     "mesh": ["*.obj", "*.ply", "*.fbx"],
     "contour_lines": ["*contour*.shp", "*contour*.dxf"],
 }
+
+IMAGE_PATH_PATTERN = re.compile(rb"[A-Za-z]:/[^\x00-\x1f\"<>|]+?\.(?:jpg|jpeg|tif|tiff|png)", re.IGNORECASE)
 
 
 class Pix4DWorkflows:
@@ -245,6 +248,38 @@ class Pix4DWorkflows:
 
         return {"ok": all_found, "project_dir": str(root), "checks": checks}
 
+    def analyze_project(self, project_dir: str, project_file: str | None = None) -> dict[str, Any]:
+        root = Path(project_dir)
+        if not root.exists():
+            return {"ok": False, "code": "PROJECT_DIR_NOT_FOUND", "message": f"Project directory does not exist: {root}"}
+
+        p4m = Path(project_file) if project_file else root / "root.p4m"
+        image_refs = self._extract_image_references(p4m) if p4m.exists() else []
+        existing_images = [path for path in image_refs if Path(path).exists()]
+
+        file_counts = {}
+        for path in root.rglob("*"):
+            if not path.is_file():
+                continue
+            suffix = path.suffix.lower() or "<none>"
+            file_counts[suffix] = file_counts.get(suffix, 0) + 1
+
+        expected = ["quality_report", "orthomosaic", "dsm", "dtm", "dense_point_cloud", "mesh", "contour_lines"]
+        outputs = self.check_outputs(str(root), expected)
+        logs = self.read_latest_logs(lines=120, project_dir=str(root))
+        return {
+            "ok": True,
+            "project_dir": str(root),
+            "project_file": str(p4m) if p4m.exists() else None,
+            "image_reference_count": len(image_refs),
+            "existing_image_count": len(existing_images),
+            "missing_image_count": len(image_refs) - len(existing_images),
+            "image_references_sample": image_refs[:20],
+            "file_counts": dict(sorted(file_counts.items())),
+            "outputs": outputs,
+            "latest_logs": logs,
+        }
+
     def collect_diagnostics(self, output_dir: str, project_dir: str | None = None) -> dict[str, Any]:
         destination = Path(output_dir)
         destination.mkdir(parents=True, exist_ok=True)
@@ -277,3 +312,18 @@ class Pix4DWorkflows:
         except OSError as exc:
             result["report_error"] = str(exc)
         return result
+
+    @staticmethod
+    def _extract_image_references(project_file: Path) -> list[str]:
+        try:
+            data = project_file.read_bytes()
+        except OSError:
+            return []
+        refs = []
+        seen = set()
+        for match in IMAGE_PATH_PATTERN.finditer(data):
+            value = match.group(0).decode("utf-8", errors="ignore")
+            if value not in seen:
+                refs.append(value)
+                seen.add(value)
+        return refs

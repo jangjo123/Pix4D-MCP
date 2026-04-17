@@ -122,6 +122,12 @@ def pix4d_check_outputs(project_dir: str, expected: list[str]) -> dict[str, Any]
 
 
 @mcp.tool()
+def pix4d_analyze_project(project_dir: str, project_file: str | None = None) -> dict[str, Any]:
+    """Inspect a PIX4Dmatic project folder for image references, logs, and outputs."""
+    return _safe(workflows.analyze_project, project_dir, project_file)
+
+
+@mcp.tool()
 def pix4d_collect_diagnostics(output_dir: str, project_dir: str | None = None) -> dict[str, Any]:
     """Collect screenshot, recent logs, and status into a diagnostics directory."""
     return _safe(workflows.collect_diagnostics, output_dir, project_dir)

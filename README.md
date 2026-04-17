@@ -106,6 +106,7 @@ Logs and outputs:
 - `pix4d_read_latest_logs`
 - `pix4d_find_log_errors`
 - `pix4d_check_outputs`
+- `pix4d_analyze_project`
 - `pix4d_collect_diagnostics`
 
 ## Job Safety
