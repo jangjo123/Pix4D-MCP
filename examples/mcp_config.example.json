@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "pix4dmatic": {
+      "command": "python",
+      "args": [
+        "-m",
+        "pix4dmatic_mcp.server"
+      ],
+      "cwd": "C:\\Users\\User\\Desktop\\Pix4D-MCP",
+      "env": {
+        "PYTHONPATH": "src"
+      }
+    }
+  }
+}
