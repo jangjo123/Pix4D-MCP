@@ -91,6 +91,7 @@ Low-level UI control:
 - `pix4d_type_text`
 - `pix4d_click_text`
 - `pix4d_click_menu`
+- `pix4d_list_menu_items`
 
 Project and processing:
 
@@ -108,6 +109,7 @@ Logs and outputs:
 - `pix4d_find_log_errors`
 - `pix4d_check_outputs`
 - `pix4d_analyze_project`
+- `pix4d_detect_blockers`
 - `pix4d_collect_diagnostics`
 
 ## Job Safety

@@ -280,6 +280,56 @@ class Pix4DWorkflows:
             "latest_logs": logs,
         }
 
+    def detect_blockers(self, project_dir: str | None = None) -> dict[str, Any]:
+        tree = self.controller.get_ui_tree(depth=4)
+        controls = tree.get("controls", [])
+        visible_texts = [control.get("text") for control in controls if control.get("text")]
+        process_menu = self.controller.list_menu_items("프로세스(P)", timeout_sec=5)
+        process_items = [
+            item for item in process_menu.get("items", [])
+            if item.get("control_type") == "MenuItem" and item.get("automation_id")
+        ]
+        disabled_process_items = [item for item in process_items if not item.get("enabled")]
+        latest_logs = self.read_latest_logs(lines=120, project_dir=project_dir)
+        log_summary = latest_logs.get("summary", {})
+
+        blockers = []
+        if "평가판 시작" in visible_texts or "Start trial" in visible_texts:
+            blockers.append(
+                {
+                    "code": "TRIAL_OR_LICENSE_PROMPT_VISIBLE",
+                    "message": "The PIX4Dmatic toolbar exposes a trial/license action.",
+                }
+            )
+        if process_items and len(disabled_process_items) == len(process_items):
+            blockers.append(
+                {
+                    "code": "PROCESSING_MENU_DISABLED",
+                    "message": "All processing menu items are disabled in the current UI state.",
+                }
+            )
+        if log_summary.get("error_count"):
+            license_errors = [
+                line for line in log_summary.get("errors", [])
+                if "license" in line.lower()
+            ]
+            if license_errors:
+                blockers.append(
+                    {
+                        "code": "LICENSE_ERRORS_IN_LOG",
+                        "message": "Recent logs contain license-related errors.",
+                        "errors": license_errors[-10:],
+                    }
+                )
+
+        return {
+            "ok": not blockers,
+            "blockers": blockers,
+            "visible_texts": visible_texts,
+            "process_menu": process_menu,
+            "latest_logs": latest_logs,
+        }
+
     def collect_diagnostics(self, output_dir: str, project_dir: str | None = None) -> dict[str, Any]:
         destination = Path(output_dir)
         destination.mkdir(parents=True, exist_ok=True)

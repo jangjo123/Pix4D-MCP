@@ -5,6 +5,7 @@ import sys
 import time
 import types
 import tempfile
+import re
 from pathlib import Path
 from typing import Any
 
@@ -211,6 +212,54 @@ class Pix4DMaticController:
                 break
         return {"ok": True, "depth": depth, "controls": controls}
 
+    def list_menu_items(self, menu_text: str, timeout_sec: int | None = None) -> dict[str, Any]:
+        if keyboard is None:
+            raise Pix4DAutomationError("pywinauto keyboard support is not available.")
+        self.focus()
+        self._ensure_foreground_for_keyboard()
+        keyboard.send_keys("{ESC}")
+        accelerator = self._menu_accelerator(menu_text)
+        if accelerator:
+            keyboard.send_keys(f"%{accelerator}")
+        else:
+            self.click_text(menu_text, timeout_sec=timeout_sec or self.config.default_timeout_sec)
+        time.sleep(0.5)
+        items = self._visible_menu_items()
+        if len([item for item in items if item["control_type"] == "MenuItem"]) <= 1 and accelerator:
+            self.click_text(menu_text, timeout_sec=timeout_sec or self.config.default_timeout_sec)
+            time.sleep(0.5)
+            items = self._visible_menu_items()
+        keyboard.send_keys("{ESC}")
+        return {"ok": True, "menu": menu_text, "items": items}
+
+    def _visible_menu_items(self) -> list[dict[str, Any]]:
+        items = []
+        for control in self._uia_main_window().descendants():
+            try:
+                automation_id = control.element_info.automation_id
+                control_type = control.element_info.control_type
+                if control_type not in {"MenuItem", "Separator", "Menu"} and "MenuBarMenu" not in automation_id:
+                    continue
+                rect = control.rectangle()
+                items.append(
+                    {
+                        "text": control.window_text(),
+                        "control_type": control_type,
+                        "automation_id": automation_id,
+                        "enabled": control.is_enabled(),
+                        "visible": control.is_visible(),
+                        "rectangle": {
+                            "left": rect.left,
+                            "top": rect.top,
+                            "right": rect.right,
+                            "bottom": rect.bottom,
+                        },
+                    }
+                )
+            except Exception:
+                continue
+        return items
+
     def open_project(self, project_path: str) -> dict[str, Any]:
         path = Path(project_path)
         if not path.exists():
@@ -295,6 +344,13 @@ class Pix4DMaticController:
                 continue
         control.click_input()
         return "click_input"
+
+    @staticmethod
+    def _menu_accelerator(menu_text: str) -> str | None:
+        match = re.search(r"\(([A-Za-z])\)", menu_text)
+        if match:
+            return match.group(1).lower()
+        return None
 
     def _desktop_windows(self):
         if Desktop is None:

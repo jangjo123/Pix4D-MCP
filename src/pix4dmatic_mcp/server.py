@@ -86,6 +86,12 @@ def pix4d_get_ui_tree(depth: int = 3) -> dict[str, Any]:
 
 
 @mcp.tool()
+def pix4d_list_menu_items(menu_text: str, timeout_sec: int | None = None) -> dict[str, Any]:
+    """Open a PIX4Dmatic menu and return visible menu items with enabled states."""
+    return _safe(controller.list_menu_items, menu_text, timeout_sec)
+
+
+@mcp.tool()
 def pix4d_open_project(project_path: str) -> dict[str, Any]:
     """Open an existing PIX4Dmatic project file."""
     return _safe(controller.open_project, project_path)
@@ -131,6 +137,12 @@ def pix4d_check_outputs(project_dir: str, expected: list[str]) -> dict[str, Any]
 def pix4d_analyze_project(project_dir: str, project_file: str | None = None) -> dict[str, Any]:
     """Inspect a PIX4Dmatic project folder for image references, logs, and outputs."""
     return _safe(workflows.analyze_project, project_dir, project_file)
+
+
+@mcp.tool()
+def pix4d_detect_blockers(project_dir: str | None = None) -> dict[str, Any]:
+    """Detect visible UI or log blockers that prevent processing automation."""
+    return _safe(workflows.detect_blockers, project_dir)
 
 
 @mcp.tool()
